@@ -582,23 +582,35 @@
                 </td>
                 <!-- Editable Category -->
                 <td class="px-4 py-3">
-                  <el-select
-                    :model-value="transaction.category_id || ''"
-                    @update:model-value="updateTransaction(transaction.id, 'category_id', $event)"
-                    placeholder="Category"
-                    clearable
-                    filterable
-                    size="small"
-                    :class="getUpdateClass(transaction.id, 'category_id')"
-                    style="width: 100%"
-                  >
-                    <el-option
-                      v-for="category in budgetStore.categories"
-                      :key="category.id"
-                      :label="category.name"
-                      :value="category.id"
-                    />
-                  </el-select>
+                  <div class="flex items-center space-x-1">
+                    <el-select
+                      :model-value="transaction.category_id || ''"
+                      @update:model-value="updateTransaction(transaction.id, 'category_id', $event)"
+                      placeholder="Category"
+                      clearable
+                      filterable
+                      size="small"
+                      :class="getUpdateClass(transaction.id, 'category_id')"
+                      style="flex: 1"
+                    >
+                      <el-option
+                        v-for="category in budgetStore.categories"
+                        :key="category.id"
+                        :label="category.name"
+                        :value="category.id"
+                      />
+                    </el-select>
+                    <button
+                      v-if="transaction.category_id"
+                      @click="openApplyToAllModal(transaction.category_id)"
+                      class="p-1 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-colors"
+                      title="Apply this category to all visible transactions"
+                    >
+                      <svg class="w-4 h-4 transform rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
+                      </svg>
+                    </button>
+                  </div>
                 </td>
                 <!-- Editable Amount -->
                 <td class="px-4 py-3">
@@ -1029,11 +1041,71 @@
   </div>
 
   <!-- Paste Transactions Modal -->
-  <PasteTransactionsModal 
+  <PasteTransactionsModal
     :is-open="showPasteModal"
     @close="showPasteModal = false"
     @saved="handleTransactionsSaved"
   />
+
+  <!-- Apply Category to All Modal -->
+  <div v-if="showApplyToAllModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl p-8 w-full max-w-md mx-4 shadow-2xl">
+      <div v-if="!applyToAllSuccess" class="flex items-center justify-center w-12 h-12 mx-auto mb-4 bg-indigo-100 rounded-full">
+        <svg class="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
+        </svg>
+      </div>
+      <div v-else class="flex items-center justify-center w-12 h-12 mx-auto mb-4 bg-green-100 rounded-full">
+        <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+        </svg>
+      </div>
+
+      <div v-if="!applyToAllSuccess">
+        <h3 class="text-xl font-semibold text-gray-900 text-center mb-2">Apply Category to All</h3>
+        <p class="text-sm text-gray-500 text-center mb-6">
+          Are you sure you want to apply the category <strong>{{ getCategoryName(selectedCategoryForApplyAll) }}</strong> to all <strong>{{ filteredTransactions.length }} visible transactions</strong>?
+        </p>
+        <p class="text-xs text-gray-400 text-center mb-6">
+          This will only affect the transactions currently displayed on the screen based on your active filters.
+        </p>
+
+        <div class="flex space-x-3">
+          <button
+            type="button"
+            @click="closeApplyToAllModal"
+            class="flex-1 bg-gray-100 text-gray-700 py-3 rounded-lg hover:bg-gray-200 transition-colors font-medium"
+          >
+            Cancel
+          </button>
+          <button
+            @click="applyToAllTransactions"
+            :disabled="isApplyingToAll"
+            class="flex-1 bg-indigo-600 text-white py-3 rounded-lg hover:bg-indigo-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <span v-if="isApplyingToAll" class="flex items-center justify-center space-x-2">
+              <div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              <span>Applying...</span>
+            </span>
+            <span v-else>Apply to All</span>
+          </button>
+        </div>
+      </div>
+
+      <div v-else>
+        <h3 class="text-xl font-semibold text-gray-900 text-center mb-2">Success!</h3>
+        <p class="text-sm text-gray-500 text-center mb-6">
+          Successfully applied <strong>{{ getCategoryName(selectedCategoryForApplyAll) }}</strong> to <strong>{{ appliedCount }} transactions</strong>.
+        </p>
+        <button
+          @click="closeApplyToAllModal"
+          class="w-full bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition-colors font-medium"
+        >
+          Done
+        </button>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -1061,10 +1133,15 @@ const showIOUModal = ref(false)
 const showPaymentModal = ref(false)
 const showTagModal = ref(false)
 const showPasteModal = ref(false)
+const showApplyToAllModal = ref(false)
+const applyToAllSuccess = ref(false)
+const appliedCount = ref(0)
 const isProcessing = ref(false)
 const isProcessingSingle = reactive<Record<string, boolean>>({})
+const isApplyingToAll = ref(false)
 const selectedCategories = reactive<Record<string, string>>({})
 const selectedTransaction = ref<any>(null)
+const selectedCategoryForApplyAll = ref<string>('')
 
 const transactionForm = ref({
   description: '',
@@ -2058,6 +2135,67 @@ const closeTagModal = () => {
 const handleTransactionsSaved = () => {
   showPasteModal.value = false
   loadData() // Refresh the transactions list
+}
+
+const getCategoryName = (categoryId: string) => {
+  const category = budgetStore.categories.find(c => c.id === categoryId)
+  return category?.name || 'Unknown Category'
+}
+
+const openApplyToAllModal = (categoryId: string) => {
+  selectedCategoryForApplyAll.value = categoryId
+  applyToAllSuccess.value = false
+  appliedCount.value = 0
+  showApplyToAllModal.value = true
+}
+
+const closeApplyToAllModal = () => {
+  showApplyToAllModal.value = false
+  selectedCategoryForApplyAll.value = ''
+  applyToAllSuccess.value = false
+  appliedCount.value = 0
+}
+
+const applyToAllTransactions = async () => {
+  if (!selectedCategoryForApplyAll.value) return
+
+  isApplyingToAll.value = true
+
+  try {
+    // Get all visible transaction IDs
+    const transactionIds = filteredTransactions.value.map(t => t.id)
+
+    // Update all transactions in parallel
+    const updatePromises = transactionIds.map(id =>
+      supabase
+        .from('transactions')
+        .update({
+          category_id: selectedCategoryForApplyAll.value,
+          is_categorized: true
+        })
+        .eq('id', id)
+    )
+
+    await Promise.all(updatePromises)
+
+    // Update local state optimistically without reloading
+    transactionIds.forEach(id => {
+      const transaction = budgetStore.transactions.find(t => t.id === id)
+      if (transaction) {
+        transaction.category_id = selectedCategoryForApplyAll.value
+        transaction.is_categorized = true
+      }
+    })
+
+    appliedCount.value = transactionIds.length
+    applyToAllSuccess.value = true
+  } catch (error) {
+    console.error('Error applying category to all transactions:', error)
+    alert('Failed to apply category to all transactions. Please try again.')
+    closeApplyToAllModal()
+  } finally {
+    isApplyingToAll.value = false
+  }
 }
 
 const loadData = async () => {
