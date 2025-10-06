@@ -90,6 +90,9 @@
               placeholder="All Categories"
               clearable
               filterable
+              multiple
+              collapse-tags
+              collapse-tags-tooltip
               class="w-full filter-select"
               size="default"
             >
@@ -720,6 +723,33 @@
                 </td>
                 <td class="px-4 py-3">
                   <div class="flex items-center space-x-1">
+                    <!-- Notes Button -->
+                    <div class="relative group">
+                      <button
+                        @click="openNotesModal(transaction)"
+                        class="p-1 rounded transition-colors"
+                        :class="transaction.notes ? 'text-blue-600 hover:bg-blue-50' : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50'"
+                        :title="transaction.notes ? 'View/Edit note' : 'Add note'"
+                      >
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"></path>
+                        </svg>
+                      </button>
+
+                      <!-- Note tooltip on hover -->
+                      <div
+                        v-if="transaction.notes"
+                        class="absolute right-full mr-2 top-1/2 transform -translate-y-1/2 px-4 py-3 bg-white border border-gray-200 text-gray-700 text-sm rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none whitespace-pre-wrap min-w-[200px] max-w-sm z-50"
+                      >
+                        <div class="font-medium text-xs text-gray-500 mb-1">Note:</div>
+                        {{ transaction.notes }}
+                        <div class="absolute left-full top-1/2 transform -translate-y-1/2">
+                          <div class="border-8 border-transparent border-l-white"></div>
+                          <div class="absolute left-0 top-1/2 transform -translate-x-px -translate-y-1/2 border-8 border-transparent border-l-gray-200"></div>
+                        </div>
+                      </div>
+                    </div>
+
                     <!-- Highlight Button -->
                     <button
                       @click="() => { console.log('Toggling highlight for:', transaction.id, 'current state:', transaction.is_highlighted); budgetStore.toggleTransactionHighlight(transaction.id); }"
@@ -731,7 +761,7 @@
                         <path fill-rule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd" />
                       </svg>
                     </button>
-                    
+
                     <!-- IOU Button - only show for non-income transactions and for Jean/Izzy -->
                     <div v-if="!transaction.is_income && (authStore.currentUser?.name === 'Jean' || authStore.currentUser?.name === 'Izzy')" class="flex space-x-1">
                       <button
@@ -1047,6 +1077,55 @@
     @saved="handleTransactionsSaved"
   />
 
+  <!-- Notes Modal -->
+  <div v-if="showNotesModal && selectedTransaction" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl p-8 w-full max-w-md mx-4 shadow-2xl">
+      <div class="flex items-center justify-center w-12 h-12 mx-auto mb-4 bg-blue-100 rounded-full">
+        <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"></path>
+        </svg>
+      </div>
+
+      <h3 class="text-xl font-semibold text-gray-900 text-center mb-2">Transaction Note</h3>
+      <p class="text-sm text-gray-500 text-center mb-6">
+        {{ selectedTransaction.description }}
+      </p>
+
+      <form @submit.prevent="saveNote" class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Note</label>
+          <textarea
+            v-model="noteText"
+            rows="4"
+            class="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            placeholder="Add notes or comments about this transaction..."
+          ></textarea>
+        </div>
+
+        <div class="flex space-x-3 pt-4">
+          <button
+            type="button"
+            @click="closeNotesModal"
+            class="flex-1 bg-gray-100 text-gray-700 py-3 rounded-lg hover:bg-gray-200 transition-colors font-medium"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            :disabled="isSavingNote"
+            class="flex-1 bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <span v-if="isSavingNote" class="flex items-center justify-center space-x-2">
+              <div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              <span>Saving...</span>
+            </span>
+            <span v-else>Save Note</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- Apply Category to All Modal -->
   <div v-if="showApplyToAllModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
     <div class="bg-white rounded-xl p-8 w-full max-w-md mx-4 shadow-2xl">
@@ -1134,14 +1213,17 @@ const showPaymentModal = ref(false)
 const showTagModal = ref(false)
 const showPasteModal = ref(false)
 const showApplyToAllModal = ref(false)
+const showNotesModal = ref(false)
 const applyToAllSuccess = ref(false)
 const appliedCount = ref(0)
 const isProcessing = ref(false)
 const isProcessingSingle = reactive<Record<string, boolean>>({})
 const isApplyingToAll = ref(false)
+const isSavingNote = ref(false)
 const selectedCategories = reactive<Record<string, string>>({})
 const selectedTransaction = ref<any>(null)
 const selectedCategoryForApplyAll = ref<string>('')
+const noteText = ref('')
 
 const transactionForm = ref({
   description: '',
@@ -1174,7 +1256,7 @@ const selectedTagToAdd = ref('')
 // Smart filtering state
 const filters = ref({
   search: '',
-  category: '',
+  category: [] as string[],
   type: '',
   minAmount: null as number | null,
   maxAmount: null as number | null,
@@ -1207,12 +1289,13 @@ const filteredTransactions = computed(() => {
   }
 
   // Category filter
-  if (filters.value.category) {
-    if (filters.value.category === 'uncategorized') {
-      filtered = filtered.filter(t => !t.category_id)
-    } else {
-      filtered = filtered.filter(t => t.category_id === filters.value.category)
-    }
+  if (filters.value.category.length > 0) {
+    filtered = filtered.filter(t => {
+      if (filters.value.category.includes('uncategorized') && !t.category_id) {
+        return true
+      }
+      return t.category_id && filters.value.category.includes(t.category_id)
+    })
   }
 
   // Type filter
@@ -1289,7 +1372,7 @@ const filteredTransactions = computed(() => {
 const activeFiltersCount = computed(() => {
   let count = 0
   if (filters.value.search) count++
-  if (filters.value.category) count++
+  if (filters.value.category.length > 0) count++
   if (filters.value.type) count++
   if (filters.value.minAmount !== null) count++
   if (filters.value.maxAmount !== null) count++
@@ -1302,15 +1385,16 @@ const activeFiltersCount = computed(() => {
 
 const activeFiltersList = computed(() => {
   const active = []
-  
+
   if (filters.value.search) {
     active.push({ key: 'search', label: `Search: "${filters.value.search}"` })
   }
-  if (filters.value.category) {
-    const categoryName = filters.value.category === 'uncategorized' 
-      ? 'Uncategorized' 
-      : budgetStore.categories.find(c => c.id === filters.value.category)?.name || 'Unknown'
-    active.push({ key: 'category', label: `Category: ${categoryName}` })
+  if (filters.value.category.length > 0) {
+    const categoryNames = filters.value.category.map(catId => {
+      if (catId === 'uncategorized') return 'Uncategorized'
+      return budgetStore.categories.find(c => c.id === catId)?.name || 'Unknown'
+    }).join(', ')
+    active.push({ key: 'category', label: `Categories: ${categoryNames}` })
   }
   if (filters.value.type) {
     const typeLabel = filters.value.type === 'income' ? 'Income' : 
@@ -1354,7 +1438,7 @@ const availableTagsForTransaction = computed(() => {
 const resetFilters = () => {
   filters.value = {
     search: '',
-    category: '',
+    category: [],
     type: '',
     minAmount: null,
     maxAmount: null,
@@ -1372,7 +1456,7 @@ const clearFilter = (filterKey: string) => {
       filters.value.search = ''
       break
     case 'category':
-      filters.value.category = ''
+      filters.value.category = []
       break
     case 'type':
       filters.value.type = ''
@@ -2195,6 +2279,46 @@ const applyToAllTransactions = async () => {
     closeApplyToAllModal()
   } finally {
     isApplyingToAll.value = false
+  }
+}
+
+const openNotesModal = (transaction: any) => {
+  selectedTransaction.value = transaction
+  noteText.value = transaction.notes || ''
+  showNotesModal.value = true
+}
+
+const closeNotesModal = () => {
+  showNotesModal.value = false
+  selectedTransaction.value = null
+  noteText.value = ''
+}
+
+const saveNote = async () => {
+  if (!selectedTransaction.value) return
+
+  isSavingNote.value = true
+
+  try {
+    const { error } = await supabase
+      .from('transactions')
+      .update({ notes: noteText.value || null })
+      .eq('id', selectedTransaction.value.id)
+
+    if (error) throw error
+
+    // Update local state optimistically
+    const transaction = budgetStore.transactions.find(t => t.id === selectedTransaction.value.id)
+    if (transaction) {
+      transaction.notes = noteText.value || null
+    }
+
+    closeNotesModal()
+  } catch (error) {
+    console.error('Error saving note:', error)
+    alert('Failed to save note. Please try again.')
+  } finally {
+    isSavingNote.value = false
   }
 }
 
