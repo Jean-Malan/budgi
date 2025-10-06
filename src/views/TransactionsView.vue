@@ -1730,10 +1730,11 @@ const markAsIOU = async () => {
     if (updateError) throw updateError
 
     // Update local state optimistically
-    const transactionIndex = budgetStore.transactions.findIndex(t => t.id === selectedTransaction.value.id)
-    if (transactionIndex !== -1) {
+    const transactionIndex = budgetStore.transactions.findIndex(t => t.id === selectedTransaction.value?.id)
+    if (transactionIndex !== -1 && authStore.currentUser?.id && budgetStore.transactions[transactionIndex]) {
+      const existingTransaction = budgetStore.transactions[transactionIndex]!
       budgetStore.transactions[transactionIndex] = {
-        ...budgetStore.transactions[transactionIndex],
+        ...existingTransaction,
         is_debt: true,
         debt_creditor_id: authStore.currentUser.id,
         debt_debtor_id: debtorUser.id,
@@ -1794,10 +1795,11 @@ const makePayment = async () => {
     if (updateError) throw updateError
 
     // Update local state optimistically
-    const transactionIndex = budgetStore.transactions.findIndex(t => t.id === selectedTransaction.value.id)
-    if (transactionIndex !== -1) {
+    const transactionIndex = budgetStore.transactions.findIndex(t => t.id === selectedTransaction.value?.id)
+    if (transactionIndex !== -1 && budgetStore.transactions[transactionIndex]) {
+      const existingTransaction = budgetStore.transactions[transactionIndex]!
       budgetStore.transactions[transactionIndex] = {
-        ...budgetStore.transactions[transactionIndex],
+        ...existingTransaction,
         debt_remaining_amount: Math.max(0, newRemainingAmount),
         debt_status: newStatus
       }
@@ -1861,9 +1863,10 @@ const unmarkAsIOU = async (transaction: any) => {
 
     // Update local state optimistically
     const transactionIndex = budgetStore.transactions.findIndex(t => t.id === transaction.id)
-    if (transactionIndex !== -1) {
+    if (transactionIndex !== -1 && budgetStore.transactions[transactionIndex]) {
+      const existingTransaction = budgetStore.transactions[transactionIndex]!
       budgetStore.transactions[transactionIndex] = {
-        ...budgetStore.transactions[transactionIndex],
+        ...existingTransaction,
         is_debt: false,
         debt_creditor_id: null,
         debt_debtor_id: null,
@@ -1930,10 +1933,11 @@ const updateTransaction = async (transactionId: string, field: string, value: an
     
     // Revert optimistic update on error
     const transactionIndex = budgetStore.transactions.findIndex(t => t.id === transactionId)
-    if (transactionIndex !== -1) {
-      budgetStore.transactions[transactionIndex] = { 
-        ...budgetStore.transactions[transactionIndex], 
-        [field]: originalValue 
+    if (transactionIndex !== -1 && budgetStore.transactions[transactionIndex]) {
+      const existingTransaction = budgetStore.transactions[transactionIndex]!
+      budgetStore.transactions[transactionIndex] = {
+        ...existingTransaction,
+        [field]: originalValue
       }
     }
     
@@ -2061,7 +2065,7 @@ const loadData = async () => {
   if (!user) return
   
   // Get the current period, but if it's not available, use the dateRange directly
-  let currentPeriod = dateRangeStore.currentPeriod.value
+  let currentPeriod = dateRangeStore.currentPeriod
   
   // Fallback: if currentPeriod is not initialized but dateRange exists, use dateRange directly
   if ((!currentPeriod || !currentPeriod.start || !currentPeriod.end) && dateRangeStore.dateRange && dateRangeStore.dateRange.length === 2) {

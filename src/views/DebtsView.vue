@@ -75,10 +75,10 @@
                   ${{ transaction.amount.toFixed(2) }}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {{ transaction.debt_split_percentage }}%
+                  {{ transaction.debt_split_percentage ?? 0 }}%
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  ${{ ((transaction.amount * transaction.debt_split_percentage) / 100).toFixed(2) }}
+                  ${{ ((transaction.amount * (transaction.debt_split_percentage ?? 0)) / 100).toFixed(2) }}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   {{ getCreditorName(transaction) }}
@@ -87,8 +87,8 @@
                   {{ getDebtorName(transaction) }}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium"
-                    :class="transaction.debt_remaining_amount > 0 ? 'text-red-600' : 'text-green-600'">
-                  ${{ transaction.debt_remaining_amount?.toFixed(2) || '0.00' }}
+                    :class="(transaction.debt_remaining_amount ?? 0) > 0 ? 'text-red-600' : 'text-green-600'">
+                  ${{ (transaction.debt_remaining_amount ?? 0).toFixed(2) }}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap">
                   <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full"
@@ -98,17 +98,17 @@
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                   <button
-                    v-if="transaction.debt_remaining_amount > 0 && transaction.debt_debtor_id === authStore.currentUser?.id"
+                    v-if="(transaction.debt_remaining_amount ?? 0) > 0 && transaction.debt_debtor_id === authStore.currentUser?.id"
                     @click="openPaymentModal(transaction)"
                     class="text-blue-600 hover:text-blue-900 text-sm font-medium"
                   >
                     Pay
                   </button>
-                  <span v-else-if="transaction.debt_remaining_amount === 0" class="text-green-600 text-sm font-medium">
+                  <span v-else-if="(transaction.debt_remaining_amount ?? 0) === 0" class="text-green-600 text-sm font-medium">
                     Paid
                   </span>
                   <button
-                    v-if="transaction.debt_remaining_amount > 0"
+                    v-if="(transaction.debt_remaining_amount ?? 0) > 0"
                     @click="viewPaymentHistory(transaction)"
                     class="text-gray-600 hover:text-gray-900 text-sm font-medium ml-2"
                   >
@@ -157,7 +157,7 @@
                 type="number"
                 step="0.01"
                 min="0.01"
-                :max="selectedTransaction.debt_remaining_amount"
+                :max="selectedTransaction.debt_remaining_amount ?? 0"
                 required
                 class="w-full pl-8 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="0.00"
@@ -165,7 +165,7 @@
               <span class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">$</span>
             </div>
             <p class="text-sm text-gray-500 mt-1">
-              Remaining debt: ${{ selectedTransaction.debt_remaining_amount?.toFixed(2) }}
+              Remaining debt: ${{ (selectedTransaction.debt_remaining_amount ?? 0).toFixed(2) }}
             </p>
           </div>
           

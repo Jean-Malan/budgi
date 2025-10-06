@@ -2,7 +2,14 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 
 export const useDateRangeStore = defineStore('dateRange', () => {
-  const dateRange = ref<[string, string]>([])
+  const now = new Date()
+  const start = new Date(now.getFullYear(), now.getMonth(), 1)
+  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+
+  const startStr = start.toISOString().split('T')[0] as string
+  const endStr = end.toISOString().split('T')[0] as string
+
+  const dateRange = ref<[string, string]>([startStr, endStr])
   const selectedMonth = ref(new Date())
 
   const currentPeriod = computed(() => {
@@ -50,11 +57,11 @@ export const useDateRangeStore = defineStore('dateRange', () => {
     const now = new Date()
     const start = new Date(now.getFullYear(), now.getMonth(), 1)
     const end = new Date(now.getFullYear(), now.getMonth() + 1, 0)
-    
-    dateRange.value = [
-      start.toISOString().split('T')[0],
-      end.toISOString().split('T')[0]
-    ]
+
+    const startStr = start.toISOString().split('T')[0] as string
+    const endStr = end.toISOString().split('T')[0] as string
+
+    dateRange.value = [startStr, endStr]
     selectedMonth.value = now
   }
 

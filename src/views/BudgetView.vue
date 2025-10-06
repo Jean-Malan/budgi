@@ -552,13 +552,13 @@ const getCategoryBudget = (categoryName: string, userName: string) => {
   const userId = userIds[userName]
   if (!userId) return 0
   
-  const category = allCategories.value.find(c => 
+  const category = allCategories.value.find(c =>
     c.name === categoryName && c.user_id === userId
   )
-  if (!category) return 0
-  
+  if (!category || !budgetPeriod.value) return 0
+
   const budgetEntry = budgetStore.getBudgetEntry(userId, category.id, budgetPeriod.value)
-  return budgetEntry?.amount || 0
+  return budgetEntry?.amount ?? 0
 }
 
 const updateCategoryBudget = async (categoryName: string, userName: string, value: string) => {
@@ -585,21 +585,26 @@ const updateCategoryBudget = async (categoryName: string, userName: string, valu
         })
         .select()
         .single()
-      
+
       if (error) throw error
+      if (!data) throw new Error('Category creation failed')
       category = data
-      
-      // Add to local categories
-      budgetStore.categories.push(category)
+
+      // Add to local categories only if it exists
+      if (category) {
+        budgetStore.categories.push(category)
+      }
     }
-    
+
     // Create or update budget entry
-    await budgetStore.createOrUpdateBudgetEntry(
-      userId, 
-      category.id, 
-      budgetPeriod.value, 
-      amount
-    )
+    if (budgetPeriod.value && category) {
+      await budgetStore.createOrUpdateBudgetEntry(
+        userId,
+        category.id,
+        budgetPeriod.value,
+        amount
+      )
+    }
   } catch (error) {
     console.error(`Error updating budget for ${userName}:`, error)
   }
@@ -618,7 +623,9 @@ const loadBudgetData = async () => {
   }
   
   // Load budget entries for the current period
-  await budgetStore.loadBudgetEntries(budgetPeriod.value)
+  if (budgetPeriod.value) {
+    await budgetStore.loadBudgetEntries(budgetPeriod.value)
+  }
   
   // Load user IDs and budget data for all three users for the selected month
   const users = ['Jean', 'Izzy', 'Shared']
@@ -727,9 +734,7 @@ const editCategoryByName = (categoryName: string) => {
 const confirmDeleteCategory = (categoryName: string) => {
   // Find the first category with this name for the confirmation dialog
   const category = allCategories.value.find(c => c.name === categoryName)
-  if (category) {
-    deletingCategory.value = category
-  }
+  deletingCategory.value = category ?? null
 }
 
 const deleteCategory = async () => {

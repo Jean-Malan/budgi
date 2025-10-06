@@ -256,20 +256,22 @@ const cancelTagForm = () => {
 
 const viewTagTransactions = (tag: any) => {
   // Navigate to transactions page with tag filter
-  router.push({ name: 'transactions', query: { tag: tag.id } })
+  if (tag?.id) {
+    router.push({ name: 'transactions', query: { tag: tag.id } })
+  }
 }
 
 const loadData = async () => {
   const user = authStore.currentUser
   if (!user) return
   
+  const yearStart = new Date(new Date().getFullYear(), 0, 1).toISOString().split('T')[0] as string
+  const yearEnd = new Date(new Date().getFullYear(), 11, 31).toISOString().split('T')[0] as string
+
   await Promise.all([
     budgetStore.loadTransactionTags(),
     budgetStore.loadTagAssignments(),
-    budgetStore.loadTransactions(
-      new Date(new Date().getFullYear(), 0, 1).toISOString().split('T')[0], // Start of year
-      new Date(new Date().getFullYear(), 11, 31).toISOString().split('T')[0] // End of year
-    )
+    budgetStore.loadTransactions(yearStart, yearEnd)
   ])
 }
 

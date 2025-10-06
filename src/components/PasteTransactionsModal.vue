@@ -229,7 +229,12 @@ const processData = () => {
   }
 
   // Parse first line as headers
-  headers.value = parseCSVLine(lines[0])
+  const firstLine = lines[0]
+  if (!firstLine) {
+    ElMessage.error('No header row found')
+    return
+  }
+  headers.value = parseCSVLine(firstLine)
   
   // Parse remaining lines as data
   rows.value = lines.slice(1).map(line => parseCSVLine(line))
@@ -282,7 +287,8 @@ const parseCSVLine = (line: string): string[] => {
   return result
 }
 
-const getColumnMappingLabel = (mapping: string): string => {
+const getColumnMappingLabel = (mapping: string | undefined): string => {
+  if (!mapping) return 'Not mapped'
   const labels: { [key: string]: string } = {
     date: 'Date',
     description: 'Description',
@@ -292,7 +298,7 @@ const getColumnMappingLabel = (mapping: string): string => {
     status: 'Status',
     ignore: 'Ignored'
   }
-  return mapping ? labels[mapping] || mapping : 'Not mapped'
+  return labels[mapping] || mapping
 }
 
 const saveTransactions = async () => {
@@ -315,6 +321,12 @@ const saveTransactions = async () => {
       const amountStr = row[parseInt(amountIndex)]
       const typeStr = typeIndex ? row[parseInt(typeIndex)] : ''
 
+      // Skip row if required fields are missing
+      if (!dateStr || !description || !amountStr) {
+        ElMessage.error('Row has missing required fields')
+        continue
+      }
+
       // Parse date
       let date: string
       try {
@@ -322,7 +334,9 @@ const saveTransactions = async () => {
         if (isNaN(parsedDate.getTime())) {
           throw new Error('Invalid date')
         }
-        date = parsedDate.toISOString().split('T')[0]
+        const dateResult = parsedDate.toISOString().split('T')[0]
+        if (!dateResult) throw new Error('Invalid date format')
+        date = dateResult
       } catch {
         ElMessage.error(`Invalid date format: ${dateStr}`)
         continue
@@ -341,7 +355,7 @@ const saveTransactions = async () => {
       }
 
       // Determine if it's income based on type column or amount
-      const isIncome = typeStr.toLowerCase().includes('credit') || amount < 0
+      const isIncome = typeStr?.toLowerCase().includes('credit') || amount < 0
 
       await budgetStore.createTransaction({
         user_id: selectedUser.value,
@@ -358,7 +372,10 @@ const saveTransactions = async () => {
         debt_debtor_id: null,
         debt_split_percentage: null,
         debt_status: null,
-        debt_remaining_amount: null
+        debt_remaining_amount: null,
+        is_payback: false,
+        payback_from_user_id: null,
+        is_highlighted: false
       })
     }
 

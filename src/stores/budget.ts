@@ -7,6 +7,7 @@ export interface Category {
   id: string
   name: string
   color: string
+  user_id?: string
 }
 
 export interface TransactionTag {
@@ -201,10 +202,10 @@ export const useBudgetStore = defineStore('budget', () => {
       categories.value.push(data)
       
       // If budgetAmount > 0, create a budget entry for current user for current month
-      if (budgetAmount > 0) {
+      if (budgetAmount > 0 && authStore.currentUser?.id) {
         const now = new Date()
-        const budgetPeriod = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]
-        
+        const budgetPeriod = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0] as string
+
         await createOrUpdateBudgetEntry(
           authStore.currentUser.id,
           data.id,

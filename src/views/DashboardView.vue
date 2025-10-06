@@ -48,7 +48,7 @@
         <div class="flex items-center justify-between mb-6">
           <div>
             <h1 class="text-3xl font-light text-gray-900">Profit & Loss</h1>
-            <p class="text-gray-500 mt-1">{{ formatSelectedMonth() }}</p>
+            <p class="text-gray-500 mt-1">{{ dateRangeStore.formatSelectedMonth() }}</p>
           </div>
           
           <!-- User Selection Toggles -->
@@ -244,7 +244,8 @@ const toggleUser = (userName: string) => {
 }
 
 const budgetPeriod = computed(() => {
-  const periodDate = new Date(dateRangeStore.selectedMonth.value.getFullYear(), dateRangeStore.selectedMonth.value.getMonth(), 1)
+  const month = dateRangeStore.selectedMonth
+  const periodDate = new Date(month.getFullYear(), month.getMonth(), 1)
   return periodDate.toISOString().split('T')[0]
 })
 
@@ -322,18 +323,21 @@ const incomeCategories = computed(() => {
     
     const actual = relevantTransactions
       .filter(t => {
+        if (!t.category_id) return false
         const categoryIds = categoriesWithName.map(c => c.id)
         return categoryIds.includes(t.category_id) && t.is_income
       })
       .reduce((sum, t) => sum + Math.abs(t.amount), 0)
-    
+
     const budget = categoriesWithName
       .filter(category => {
         const user = authStore.users.find(u => u.id === category.user_id)
         return user && selectedUsers.value.includes(user.name)
       })
       .reduce((sum, category) => {
-        const budgetEntry = budgetStore.getBudgetEntry(category.user_id, category.id, budgetPeriod.value)
+        const userId = category.user_id
+        if (!userId || !budgetPeriod.value) return sum
+        const budgetEntry = budgetStore.getBudgetEntry(userId, category.id, budgetPeriod.value)
         return sum + (budgetEntry?.amount || 0)
       }, 0)
     
@@ -368,18 +372,21 @@ const expenseCategories = computed(() => {
     
     const actual = relevantTransactions
       .filter(t => {
+        if (!t.category_id) return false
         const categoryIds = categoriesWithName.map(c => c.id)
         return categoryIds.includes(t.category_id) && !t.is_income
       })
       .reduce((sum, t) => sum + Math.abs(t.amount), 0)
-    
+
     const budget = categoriesWithName
       .filter(category => {
         const user = authStore.users.find(u => u.id === category.user_id)
         return user && selectedUsers.value.includes(user.name)
       })
       .reduce((sum, category) => {
-        const budgetEntry = budgetStore.getBudgetEntry(category.user_id, category.id, budgetPeriod.value)
+        const userId = category.user_id
+        if (!userId || !budgetPeriod.value) return sum
+        const budgetEntry = budgetStore.getBudgetEntry(userId, category.id, budgetPeriod.value)
         return sum + (budgetEntry?.amount || 0)
       }, 0)
     
@@ -442,13 +449,16 @@ const categoriesWithSpending = computed(() => {
     
     const spent = budgetStore.transactions
       .filter(t => {
+        if (!t.category_id) return false
         const categoryIds = categoriesWithName.map(c => c.id)
         return categoryIds.includes(t.category_id) && !t.is_income
       })
       .reduce((sum, t) => sum + t.amount, 0)
-    
+
     const totalBudget = categoriesWithName.reduce((sum, category) => {
-      const budgetEntry = budgetStore.getBudgetEntry(category.user_id, category.id, budgetPeriod.value)
+      const userId = category.user_id
+      if (!userId || !budgetPeriod.value) return sum
+      const budgetEntry = budgetStore.getBudgetEntry(userId, category.id, budgetPeriod.value)
       return sum + (budgetEntry?.amount || 0)
     }, 0)
     
@@ -482,19 +492,22 @@ const hasActionItems = computed(() => {
 const loadData = async () => {
   // Always load users first
   await authStore.loadUsers()
-  
+
   if (selectedUsers.value.length === 0) return
-  
+
   // Ensure date range is initialized
-  const currentPeriod = dateRangeStore.currentPeriod.value
+  const currentPeriod = dateRangeStore.currentPeriod
   if (!currentPeriod || !currentPeriod.start || !currentPeriod.end) {
     console.warn('Date range not initialized, skipping loadData')
     return
   }
-  
+
+  const periodValue = budgetPeriod.value
+  if (!periodValue) return
+
   await Promise.all([
     budgetStore.loadCategories(),
-    budgetStore.loadBudgetEntries(budgetPeriod.value),
+    budgetStore.loadBudgetEntries(periodValue),
     budgetStore.loadTransactions(currentPeriod.start, currentPeriod.end)
   ])
 }
@@ -507,8 +520,8 @@ onMounted(async () => {
   await loadData()
 })
 watch(() => selectedUsers.value, loadData)
-watch(() => dateRangeStore.currentPeriod.value, () => {
-  console.log('Dashboard: Date range watcher triggered, currentPeriod changed to:', dateRangeStore.currentPeriod.value)
+watch(() => dateRangeStore.currentPeriod, () => {
+  console.log('Dashboard: Date range watcher triggered, currentPeriod changed to:', dateRangeStore.currentPeriod)
   loadData()
 }, { deep: true })
 watch(() => dateRangeStore.dateRange, () => {
