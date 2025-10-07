@@ -375,7 +375,8 @@ const saveTransactions = async () => {
         debt_remaining_amount: null,
         is_payback: false,
         payback_from_user_id: null,
-        is_highlighted: false
+        is_highlighted: false,
+        notes: null
       })
     }
 

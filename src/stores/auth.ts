@@ -6,9 +6,14 @@ export const useAuthStore = defineStore('auth', () => {
   const currentUser = ref<{ id: string; name: string; email: string } | null>(null)
   const users = ref<{ id: string; name: string; email: string }[]>([])
   const isLoading = ref(false)
+  const viewAllMode = ref(false)
 
   const setUser = (user: { id: string; name: string; email: string } | null) => {
     currentUser.value = user
+    // Reset view all mode when switching users
+    if (user?.name !== 'Shared') {
+      viewAllMode.value = false
+    }
   }
 
   const switchUser = async (userName: 'Jean' | 'Izzy' | 'Shared') => {
@@ -26,6 +31,12 @@ export const useAuthStore = defineStore('auth', () => {
       console.error('Error switching user:', error)
     } finally {
       isLoading.value = false
+    }
+  }
+
+  const toggleViewAllMode = () => {
+    if (currentUser.value?.name === 'Shared') {
+      viewAllMode.value = !viewAllMode.value
     }
   }
 
@@ -51,8 +62,10 @@ export const useAuthStore = defineStore('auth', () => {
     currentUser,
     users,
     isLoading,
+    viewAllMode,
     setUser,
     switchUser,
+    toggleViewAllMode,
     loadUsers,
     logout
   }

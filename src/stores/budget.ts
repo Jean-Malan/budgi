@@ -66,6 +66,8 @@ export interface Transaction {
   payback_from_user_id: string | null
   // Highlight field
   is_highlighted: boolean
+  // Notes field
+  notes: string | null
   created_at: string
 }
 
@@ -149,9 +151,24 @@ export const useBudgetStore = defineStore('budget', () => {
 
   const loadTransactions = async (periodStart: string, periodEnd: string) => {
     if (!authStore.currentUser) return
-    
+
     try {
-      // First get the current user's bank account IDs
+      // Check if we're in view all mode (double-clicked Shared)
+      if (authStore.viewAllMode && authStore.currentUser.name === 'Shared') {
+        // Load all transactions from all users
+        const { data, error } = await supabase
+          .from('transactions')
+          .select('*')
+          .gte('date', periodStart)
+          .lte('date', periodEnd)
+          .order('date', { ascending: false })
+
+        if (error) throw error
+        transactions.value = data || []
+        return
+      }
+
+      // Normal mode: First get the current user's bank account IDs
       const { data: userBankAccounts, error: bankError } = await supabase
         .from('bank_accounts')
         .select('id')
@@ -159,7 +176,7 @@ export const useBudgetStore = defineStore('budget', () => {
         .eq('is_active', true)
 
       if (bankError) throw bankError
-      
+
       if (!userBankAccounts || userBankAccounts.length === 0) {
         transactions.value = []
         return

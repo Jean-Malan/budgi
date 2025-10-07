@@ -2370,18 +2370,19 @@ const loadData = async () => {
 onMounted(async () => {
   // Initialize date range first
   dateRangeStore.initializeCurrentMonth()
-  
+
   // Set tag filter from URL query parameter
   if (route.query.tag) {
     filters.value.tag = route.query.tag as string
   }
-  
+
   // Then load data
   await loadData()
 })
 watch(() => authStore.currentUser, loadData)
+watch(() => authStore.viewAllMode, loadData)
 watch(
-  () => dateRangeStore.dateRange, 
+  () => dateRangeStore.dateRange,
   (newRange, oldRange) => {
     console.log('Date range watcher triggered!')
     console.log('Old range:', oldRange)

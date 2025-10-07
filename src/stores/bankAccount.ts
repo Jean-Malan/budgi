@@ -33,15 +33,28 @@ export const useBankAccountStore = defineStore('bankAccount', () => {
 
     isLoading.value = true
     try {
-      const { data, error } = await supabase
-        .from('bank_accounts')
-        .select('*')
-        .eq('user_id', authStore.currentUser.id)
-        .eq('is_active', true)
-        .order('name')
+      // If in view all mode, load all bank accounts
+      if (authStore.viewAllMode && authStore.currentUser.name === 'Shared') {
+        const { data, error } = await supabase
+          .from('bank_accounts')
+          .select('*')
+          .eq('is_active', true)
+          .order('name')
 
-      if (error) throw error
-      bankAccounts.value = data || []
+        if (error) throw error
+        bankAccounts.value = data || []
+      } else {
+        // Normal mode: load only current user's bank accounts
+        const { data, error } = await supabase
+          .from('bank_accounts')
+          .select('*')
+          .eq('user_id', authStore.currentUser.id)
+          .eq('is_active', true)
+          .order('name')
+
+        if (error) throw error
+        bankAccounts.value = data || []
+      }
     } catch (error) {
       console.error('Error loading bank accounts:', error)
       throw error
