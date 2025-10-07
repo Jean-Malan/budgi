@@ -72,7 +72,7 @@
             <button
               @click="authStore.switchUser('Shared')"
               @contextmenu.prevent="handleSharedRightClick"
-              class="px-3 py-1 text-sm rounded-md border transition-colors relative"
+              class="px-3 py-1 text-sm rounded-md border transition-colors"
               :class="authStore.currentUser?.name === 'Shared'
                 ? authStore.viewAllMode
                   ? 'bg-yellow-500 text-white border-yellow-500'
@@ -81,30 +81,30 @@
             >
               Shared
             </button>
-
-            <!-- Context Menu for Shared button -->
-            <div
-              v-if="showSharedMenu"
-              @click.stop="closeSharedMenu"
-              class="fixed inset-0 z-40"
-            ></div>
-            <div
-              v-if="showSharedMenu"
-              class="absolute bg-white border border-gray-200 rounded-lg shadow-xl py-2 z-50 min-w-[180px]"
-              :style="{ top: menuPosition.y + 'px', left: menuPosition.x + 'px' }"
-            >
-              <button
-                @click="toggleViewAllMode"
-                class="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 transition-colors flex items-center justify-between"
-              >
-                <span>View All Users</span>
-                <svg v-if="authStore.viewAllMode" class="w-4 h-4 text-green-600" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                </svg>
-              </button>
-            </div>
           </div>
-          
+
+          <!-- Context Menu for Shared button -->
+          <div
+            v-if="showSharedMenu"
+            @click.stop="closeSharedMenu"
+            class="fixed inset-0 z-40"
+          ></div>
+          <div
+            v-if="showSharedMenu"
+            class="fixed bg-white border border-gray-200 rounded-lg shadow-xl py-2 z-50 min-w-[180px]"
+            :style="{ top: menuPosition.y + 'px', left: menuPosition.x + 'px' }"
+          >
+            <button
+              @click="toggleViewAllMode"
+              class="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 transition-colors flex items-center justify-between"
+            >
+              <span>View All Users</span>
+              <svg v-if="authStore.viewAllMode" class="w-4 h-4 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+              </svg>
+            </button>
+          </div>
+
           <div v-if="authStore.currentUser" class="flex items-center space-x-2">
             <div class="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
               <span class="text-white text-sm font-medium">
@@ -140,8 +140,18 @@ const closeSharedMenu = () => {
   showSharedMenu.value = false
 }
 
-const toggleViewAllMode = () => {
+const toggleViewAllMode = async () => {
+  console.log('Toggle view all mode clicked')
+  console.log('Current viewAllMode:', authStore.viewAllMode)
+  console.log('Current user:', authStore.currentUser?.name)
+
+  // If not on Shared, switch to Shared first
+  if (authStore.currentUser?.name !== 'Shared') {
+    await authStore.switchUser('Shared')
+  }
+
   authStore.toggleViewAllMode()
+  console.log('New viewAllMode:', authStore.viewAllMode)
   closeSharedMenu()
 }
 </script>

@@ -722,75 +722,76 @@
                   <span v-else class="text-xs text-gray-400">-</span>
                 </td>
                 <td class="px-4 py-3">
-                  <div class="flex items-center space-x-1">
-                    <!-- Notes Button -->
-                    <div class="relative group">
-                      <button
-                        @click="openNotesModal(transaction)"
-                        class="p-1 rounded transition-colors"
-                        :class="transaction.notes ? 'text-blue-600 hover:bg-blue-50' : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50'"
-                        :title="transaction.notes ? 'View/Edit note' : 'Add note'"
-                      >
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"></path>
-                        </svg>
-                      </button>
-
-                      <!-- Note tooltip on hover -->
-                      <div
-                        v-if="transaction.notes"
-                        class="absolute right-full mr-2 top-1/2 transform -translate-y-1/2 px-4 py-3 bg-white border border-gray-200 text-gray-700 text-sm rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none whitespace-pre-wrap min-w-[200px] max-w-sm z-50"
-                      >
-                        <div class="font-medium text-xs text-gray-500 mb-1">Note:</div>
-                        {{ transaction.notes }}
-                        <div class="absolute left-full top-1/2 transform -translate-y-1/2">
-                          <div class="border-8 border-transparent border-l-white"></div>
-                          <div class="absolute left-0 top-1/2 transform -translate-x-px -translate-y-1/2 border-8 border-transparent border-l-gray-200"></div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <!-- Highlight Button -->
-                    <button
-                      @click="() => { console.log('Toggling highlight for:', transaction.id, 'current state:', transaction.is_highlighted); budgetStore.toggleTransactionHighlight(transaction.id); }"
-                      class="px-2 py-1 text-xs rounded transition-colors"
-                      :class="transaction.is_highlighted ? 'bg-yellow-500 text-white hover:bg-yellow-600' : 'bg-gray-200 text-gray-600 hover:bg-gray-300'"
-                      :title="transaction.is_highlighted ? 'Remove highlight' : 'Highlight for review'"
-                    >
+                  <el-dropdown trigger="click">
+                    <button class="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors flex items-center space-x-1">
+                      <span>Actions</span>
                       <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd" />
+                        <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
                       </svg>
                     </button>
+                    <template #dropdown>
+                      <el-dropdown-menu>
+                        <!-- Note -->
+                        <el-dropdown-item @click="openNotesModal(transaction)">
+                          <div class="flex items-center space-x-2">
+                            <svg class="w-4 h-4" :class="transaction.notes ? 'text-blue-600' : 'text-gray-400'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"></path>
+                            </svg>
+                            <span>{{ transaction.notes ? 'Edit Note' : 'Add Note' }}</span>
+                          </div>
+                        </el-dropdown-item>
 
-                    <!-- IOU Button - only show for non-income transactions and for Jean/Izzy -->
-                    <div v-if="!transaction.is_income && (authStore.currentUser?.name === 'Jean' || authStore.currentUser?.name === 'Izzy')" class="flex space-x-1">
-                      <button
-                        v-if="!transaction.is_debt"
-                        @click="openIOUModal(transaction)"
-                        class="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-                        title="Mark this transaction as an IOU"
-                      >
-                        Mark IOU
-                      </button>
-                      <template v-else>
-                        <button
-                          v-if="transaction.debt_status === 'active'"
-                          @click="openPaymentModal(transaction)"
-                          class="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
-                          title="Make payment towards this IOU"
-                        >
-                          Pay
-                        </button>
-                        <button
-                          @click="unmarkAsIOU(transaction)"
-                          class="px-2 py-1 text-xs bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
-                          title="Remove IOU status from this transaction"
-                        >
-                          Unmark
-                        </button>
-                      </template>
-                    </div>
-                  </div>
+                        <!-- Highlight -->
+                        <el-dropdown-item @click="budgetStore.toggleTransactionHighlight(transaction.id)">
+                          <div class="flex items-center space-x-2">
+                            <svg class="w-4 h-4" :class="transaction.is_highlighted ? 'text-yellow-500' : 'text-gray-400'" fill="currentColor" viewBox="0 0 20 20">
+                              <path fill-rule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd" />
+                            </svg>
+                            <span>{{ transaction.is_highlighted ? 'Remove Highlight' : 'Highlight' }}</span>
+                          </div>
+                        </el-dropdown-item>
+
+                        <!-- IOU Options - only for non-income and Jean/Izzy -->
+                        <template v-if="!transaction.is_income && (authStore.currentUser?.name === 'Jean' || authStore.currentUser?.name === 'Izzy')">
+                          <el-dropdown-item v-if="!transaction.is_debt && !transaction.is_payback" divided @click="openIOUModal(transaction)">
+                            <div class="flex items-center space-x-2">
+                              <svg class="w-4 h-4 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                              </svg>
+                              <span>Mark as IOU</span>
+                            </div>
+                          </el-dropdown-item>
+
+                          <el-dropdown-item v-if="!transaction.is_debt && !transaction.is_payback" @click="openMarkAsPaybackModal(transaction)">
+                            <div class="flex items-center space-x-2">
+                              <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                              </svg>
+                              <span>Mark as Payback</span>
+                            </div>
+                          </el-dropdown-item>
+
+                          <el-dropdown-item v-if="transaction.is_debt && transaction.debt_status === 'active'" divided @click="openPaymentModal(transaction)">
+                            <div class="flex items-center space-x-2">
+                              <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                              </svg>
+                              <span>Make Payment</span>
+                            </div>
+                          </el-dropdown-item>
+
+                          <el-dropdown-item v-if="transaction.is_debt" @click="unmarkAsIOU(transaction)">
+                            <div class="flex items-center space-x-2">
+                              <svg class="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                              </svg>
+                              <span>Unmark IOU</span>
+                            </div>
+                          </el-dropdown-item>
+                        </template>
+                      </el-dropdown-menu>
+                    </template>
+                  </el-dropdown>
                 </td>
               </tr>
               
@@ -916,6 +917,59 @@
               class="flex-1 bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium"
             >
               Mark as IOU
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Mark as Payback Modal -->
+    <div v-if="showMarkAsPaybackModal && selectedTransaction" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div class="bg-white rounded-xl p-8 w-full max-w-md mx-4 shadow-2xl">
+        <div class="flex items-center justify-center w-12 h-12 mx-auto mb-4 bg-green-100 rounded-full">
+          <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+        </div>
+
+        <h3 class="text-xl font-semibold text-gray-900 text-center mb-2">Mark as Payback</h3>
+        <p class="text-sm text-gray-500 text-center mb-6">
+          Mark this ${{ selectedTransaction.amount.toFixed(2) }} expense as a payback
+        </p>
+
+        <form @submit.prevent="markAsPayback" class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Who is paying you back?</label>
+            <el-select
+              v-model="paybackForm.paybackFromUser"
+              placeholder="Select who is paying back"
+              clearable
+              filterable
+              style="width: 100%"
+              required
+            >
+              <el-option
+                v-for="user in availablePaybackUsers"
+                :key="user"
+                :label="user"
+                :value="user"
+              />
+            </el-select>
+          </div>
+
+          <div class="flex space-x-3 pt-4">
+            <button
+              type="button"
+              @click="cancelMarkAsPayback"
+              class="flex-1 bg-gray-100 text-gray-700 py-3 rounded-lg hover:bg-gray-200 transition-colors font-medium"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              class="flex-1 bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition-colors font-medium"
+            >
+              Mark as Payback
             </button>
           </div>
         </form>
@@ -1210,6 +1264,7 @@ const dateRangeStore = useDateRangeStore()
 const showAddTransaction = ref(false)
 const showIOUModal = ref(false)
 const showPaymentModal = ref(false)
+const showMarkAsPaybackModal = ref(false)
 const showTagModal = ref(false)
 const showPasteModal = ref(false)
 const showApplyToAllModal = ref(false)
@@ -1249,6 +1304,10 @@ const paymentForm = ref({
   amount: 0,
   paymentMethod: '',
   notes: ''
+})
+
+const paybackForm = ref({
+  paybackFromUser: ''
 })
 
 const selectedTagToAdd = ref('')
@@ -1990,6 +2049,68 @@ const cancelPayment = () => {
     amount: 0,
     paymentMethod: '',
     notes: ''
+  }
+}
+
+const openMarkAsPaybackModal = (transaction: any) => {
+  selectedTransaction.value = transaction
+  paybackForm.value = {
+    paybackFromUser: ''
+  }
+  showMarkAsPaybackModal.value = true
+}
+
+const cancelMarkAsPayback = () => {
+  showMarkAsPaybackModal.value = false
+  selectedTransaction.value = null
+  paybackForm.value = {
+    paybackFromUser: ''
+  }
+}
+
+const markAsPayback = async () => {
+  if (!selectedTransaction.value || !authStore.currentUser || !paybackForm.value.paybackFromUser) return
+
+  try {
+    // Get the payback user's ID
+    const { data: paybackUser, error: userError } = await supabase
+      .from('users')
+      .select('id')
+      .eq('name', paybackForm.value.paybackFromUser)
+      .single()
+
+    if (userError || !paybackUser) throw new Error('Payback user not found')
+
+    // Update the transaction to mark it as a payback
+    const { error: updateError } = await supabase
+      .from('transactions')
+      .update({
+        is_payback: true,
+        payback_from_user_id: paybackUser.id
+      })
+      .eq('id', selectedTransaction.value.id)
+
+    if (updateError) throw updateError
+
+    // Process the payback to reduce IOU balances
+    await processPaybackTransaction(paybackUser.id, selectedTransaction.value.amount)
+
+    // Update local state optimistically
+    const transactionIndex = budgetStore.transactions.findIndex(t => t.id === selectedTransaction.value?.id)
+    if (transactionIndex !== -1 && budgetStore.transactions[transactionIndex]) {
+      const existingTransaction = budgetStore.transactions[transactionIndex]!
+      budgetStore.transactions[transactionIndex] = {
+        ...existingTransaction,
+        is_payback: true,
+        payback_from_user_id: paybackUser.id
+      }
+    }
+
+    cancelMarkAsPayback()
+    alert('Transaction marked as payback successfully!')
+  } catch (error) {
+    console.error('Error marking transaction as payback:', error)
+    alert('Failed to mark transaction as payback. Please try again.')
   }
 }
 
