@@ -751,7 +751,7 @@
                           </div>
                         </el-dropdown-item>
 
-                        <!-- IOU Options - only for non-income and Jean/Izzy -->
+                        <!-- IOU and Payback Options - only for expenses (Jean/Izzy) -->
                         <template v-if="!transaction.is_income && (authStore.currentUser?.name === 'Jean' || authStore.currentUser?.name === 'Izzy')">
                           <el-dropdown-item v-if="!transaction.is_debt && !transaction.is_payback" divided @click="openIOUModal(transaction)">
                             <div class="flex items-center space-x-2">
@@ -926,53 +926,78 @@
     <!-- Mark as Payback Modal -->
     <div v-if="showMarkAsPaybackModal && selectedTransaction" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div class="bg-white rounded-xl p-8 w-full max-w-md mx-4 shadow-2xl">
-        <div class="flex items-center justify-center w-12 h-12 mx-auto mb-4 bg-green-100 rounded-full">
+        <div v-if="!paybackSuccess" class="flex items-center justify-center w-12 h-12 mx-auto mb-4 bg-green-100 rounded-full">
           <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
           </svg>
         </div>
+        <div v-else class="flex items-center justify-center w-12 h-12 mx-auto mb-4 bg-green-100 rounded-full">
+          <svg class="w-6 h-6 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+          </svg>
+        </div>
 
-        <h3 class="text-xl font-semibold text-gray-900 text-center mb-2">Mark as Payback</h3>
-        <p class="text-sm text-gray-500 text-center mb-6">
-          Mark this ${{ selectedTransaction.amount.toFixed(2) }} expense as a payback
-        </p>
+        <div v-if="!paybackSuccess">
+          <h3 class="text-xl font-semibold text-gray-900 text-center mb-2">Mark as Payback</h3>
+          <p class="text-sm text-gray-500 text-center mb-6">
+            Mark this ${{ selectedTransaction.amount.toFixed(2) }} expense as paying someone back
+          </p>
 
-        <form @submit.prevent="markAsPayback" class="space-y-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Who is paying you back?</label>
-            <el-select
-              v-model="paybackForm.paybackFromUser"
-              placeholder="Select who is paying back"
-              clearable
-              filterable
-              style="width: 100%"
-              required
-            >
-              <el-option
-                v-for="user in availablePaybackUsers"
-                :key="user"
-                :label="user"
-                :value="user"
-              />
-            </el-select>
-          </div>
+          <form @submit.prevent="markAsPayback" class="space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">Who are you paying back?</label>
+              <el-select
+                v-model="paybackForm.paybackFromUser"
+                placeholder="Select who you're paying back"
+                clearable
+                filterable
+                style="width: 100%"
+                required
+              >
+                <el-option
+                  v-for="user in availablePaybackUsers"
+                  :key="user"
+                  :label="user"
+                  :value="user"
+                />
+              </el-select>
+            </div>
 
-          <div class="flex space-x-3 pt-4">
-            <button
-              type="button"
-              @click="cancelMarkAsPayback"
-              class="flex-1 bg-gray-100 text-gray-700 py-3 rounded-lg hover:bg-gray-200 transition-colors font-medium"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              class="flex-1 bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition-colors font-medium"
-            >
-              Mark as Payback
-            </button>
-          </div>
-        </form>
+            <div class="flex space-x-3 pt-4">
+              <button
+                type="button"
+                @click="cancelMarkAsPayback"
+                class="flex-1 bg-gray-100 text-gray-700 py-3 rounded-lg hover:bg-gray-200 transition-colors font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                :disabled="isMarkingAsPayback"
+                class="flex-1 bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <span v-if="isMarkingAsPayback" class="flex items-center justify-center space-x-2">
+                  <div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <span>Processing...</span>
+                </span>
+                <span v-else>Mark as Payback</span>
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <div v-else>
+          <h3 class="text-xl font-semibold text-gray-900 text-center mb-2">Success!</h3>
+          <p class="text-sm text-gray-500 text-center mb-6">
+            Transaction marked as payback to <strong>{{ paybackForm.paybackFromUser }}</strong> successfully!
+          </p>
+          <button
+            @click="cancelMarkAsPayback"
+            class="w-full bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition-colors font-medium"
+          >
+            Done
+          </button>
+        </div>
       </div>
     </div>
 
@@ -1275,6 +1300,8 @@ const isProcessing = ref(false)
 const isProcessingSingle = reactive<Record<string, boolean>>({})
 const isApplyingToAll = ref(false)
 const isSavingNote = ref(false)
+const isMarkingAsPayback = ref(false)
+const paybackSuccess = ref(false)
 const selectedCategories = reactive<Record<string, string>>({})
 const selectedTransaction = ref<any>(null)
 const selectedCategoryForApplyAll = ref<string>('')
@@ -2057,6 +2084,7 @@ const openMarkAsPaybackModal = (transaction: any) => {
   paybackForm.value = {
     paybackFromUser: ''
   }
+  paybackSuccess.value = false
   showMarkAsPaybackModal.value = true
 }
 
@@ -2066,10 +2094,13 @@ const cancelMarkAsPayback = () => {
   paybackForm.value = {
     paybackFromUser: ''
   }
+  paybackSuccess.value = false
 }
 
 const markAsPayback = async () => {
   if (!selectedTransaction.value || !authStore.currentUser || !paybackForm.value.paybackFromUser) return
+
+  isMarkingAsPayback.value = true
 
   try {
     // Get the payback user's ID
@@ -2106,11 +2137,13 @@ const markAsPayback = async () => {
       }
     }
 
-    cancelMarkAsPayback()
-    alert('Transaction marked as payback successfully!')
+    paybackSuccess.value = true
   } catch (error) {
     console.error('Error marking transaction as payback:', error)
     alert('Failed to mark transaction as payback. Please try again.')
+    cancelMarkAsPayback()
+  } finally {
+    isMarkingAsPayback.value = false
   }
 }
 
