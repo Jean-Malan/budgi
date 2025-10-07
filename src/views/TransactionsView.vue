@@ -788,6 +788,15 @@
                               <span>Unmark IOU</span>
                             </div>
                           </el-dropdown-item>
+
+                          <el-dropdown-item v-if="transaction.is_payback" @click="unmarkAsPayback(transaction)">
+                            <div class="flex items-center space-x-2">
+                              <svg class="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                              </svg>
+                              <span>Unmark Payback</span>
+                            </div>
+                          </el-dropdown-item>
                         </template>
                       </el-dropdown-menu>
                     </template>
@@ -1277,7 +1286,7 @@ import { useDateRangeStore } from '@/stores/dateRange'
 import { categorizeTransactionWithAI } from '@/lib/openai'
 import { supabase } from '@/lib/supabase'
 import PasteTransactionsModal from '@/components/PasteTransactionsModal.vue'
-import { ElDatePicker } from 'element-plus'
+import { ElDatePicker, ElMessage, ElMessageBox } from 'element-plus'
 
 const route = useRoute()
 const authStore = useAuthStore()
@@ -2148,53 +2157,181 @@ const markAsPayback = async () => {
 }
 
 const unmarkAsIOU = async (transaction: any) => {
-  if (!confirm('Are you sure you want to remove the IOU status from this transaction? This will delete all associated payment records.')) {
-    return
-  }
+  ElMessageBox.confirm(
+    'This will delete all associated payment records. Are you sure?',
+    'Remove IOU Status',
+    {
+      confirmButtonText: 'Remove',
+      cancelButtonText: 'Cancel',
+      type: 'warning',
+    }
+  )
+    .then(async () => {
+      try {
+        // First, delete any associated debt payments
+        const { error: paymentsError } = await supabase
+          .from('debt_payments')
+          .delete()
+          .eq('transaction_id', transaction.id)
+
+        if (paymentsError) throw paymentsError
+
+        // Then update the transaction to remove IOU status
+        const { error: updateError } = await supabase
+          .from('transactions')
+          .update({
+            is_debt: false,
+            debt_creditor_id: null,
+            debt_debtor_id: null,
+            debt_split_percentage: null,
+            debt_status: null,
+            debt_remaining_amount: null
+          })
+          .eq('id', transaction.id)
+
+        if (updateError) throw updateError
+
+        // Update local state optimistically
+        const transactionIndex = budgetStore.transactions.findIndex(t => t.id === transaction.id)
+        if (transactionIndex !== -1 && budgetStore.transactions[transactionIndex]) {
+          const existingTransaction = budgetStore.transactions[transactionIndex]!
+          budgetStore.transactions[transactionIndex] = {
+            ...existingTransaction,
+            is_debt: false,
+            debt_creditor_id: null,
+            debt_debtor_id: null,
+            debt_split_percentage: null,
+            debt_status: null,
+            debt_remaining_amount: null
+          }
+        }
+
+        ElMessage.success('IOU status removed successfully!')
+      } catch (error) {
+        console.error('Error unmarking transaction as IOU:', error)
+        ElMessage.error('Failed to remove IOU status. Please try again.')
+      }
+    })
+    .catch(() => {
+      // User cancelled
+    })
+}
+
+const unmarkAsPayback = async (transaction: any) => {
+  ElMessageBox.confirm(
+    'This will reverse any IOU balance reductions. Are you sure?',
+    'Remove Payback Status',
+    {
+      confirmButtonText: 'Remove',
+      cancelButtonText: 'Cancel',
+      type: 'warning',
+    }
+  )
+    .then(async () => {
+      try {
+        // Get the payback user ID to reverse the balance reduction
+        const paybackUserId = transaction.payback_from_user_id
+        const paybackAmount = transaction.amount
+
+        if (paybackUserId) {
+          // Reverse the payback by adding the amount back to IOUs
+          await reversePaybackTransaction(paybackUserId, paybackAmount)
+        }
+
+        // Update the transaction to remove payback status
+        const { error: updateError } = await supabase
+          .from('transactions')
+          .update({
+            is_payback: false,
+            payback_from_user_id: null
+          })
+          .eq('id', transaction.id)
+
+        if (updateError) throw updateError
+
+        // Update local state
+        const transactionIndex = budgetStore.transactions.findIndex(t => t.id === transaction.id)
+        if (transactionIndex !== -1 && budgetStore.transactions[transactionIndex]) {
+          const existingTransaction = budgetStore.transactions[transactionIndex]!
+          budgetStore.transactions[transactionIndex] = {
+            ...existingTransaction,
+            is_payback: false,
+            payback_from_user_id: null
+          }
+        }
+
+        ElMessage.success('Payback status removed successfully!')
+      } catch (error) {
+        console.error('Error removing payback status:', error)
+        ElMessage.error('Failed to remove payback status. Please try again.')
+      }
+    })
+    .catch(() => {
+      // User cancelled
+    })
+}
+
+const reversePaybackTransaction = async (paybackFromUserId: string, paybackAmount: number) => {
+  const user = authStore.currentUser
+  if (!user) return
 
   try {
-    // First, delete any associated debt payments
-    const { error: paymentsError } = await supabase
+    // Find the most recent debt payment records for this payback
+    const { data: payments, error: paymentsError } = await supabase
       .from('debt_payments')
-      .delete()
-      .eq('transaction_id', transaction.id)
+      .select('*')
+      .eq('payer_id', paybackFromUserId)
+      .eq('payment_method', 'Payback Transaction')
+      .order('payment_date', { ascending: false })
+      .limit(10) // Get recent payments to reverse
 
     if (paymentsError) throw paymentsError
 
-    // Then update the transaction to remove IOU status
-    const { error: updateError } = await supabase
-      .from('transactions')
-      .update({
-        is_debt: false,
-        debt_creditor_id: null,
-        debt_debtor_id: null,
-        debt_split_percentage: null,
-        debt_status: null,
-        debt_remaining_amount: null
-      })
-      .eq('id', transaction.id)
+    let remainingToReverse = paybackAmount
+    const paymentsToDelete: string[] = []
 
-    if (updateError) throw updateError
+    // Reverse payments and add back to IOUs
+    for (const payment of payments || []) {
+      if (remainingToReverse <= 0) break
 
-    // Update local state optimistically
-    const transactionIndex = budgetStore.transactions.findIndex(t => t.id === transaction.id)
-    if (transactionIndex !== -1 && budgetStore.transactions[transactionIndex]) {
-      const existingTransaction = budgetStore.transactions[transactionIndex]!
-      budgetStore.transactions[transactionIndex] = {
-        ...existingTransaction,
-        is_debt: false,
-        debt_creditor_id: null,
-        debt_debtor_id: null,
-        debt_split_percentage: null,
-        debt_status: null,
-        debt_remaining_amount: null
+      const amountToReverse = Math.min(remainingToReverse, payment.amount)
+
+      // Add the amount back to the IOU
+      const { data: iou, error: iouError } = await supabase
+        .from('transactions')
+        .select('*')
+        .eq('id', payment.transaction_id)
+        .single()
+
+      if (!iouError && iou) {
+        const newRemainingAmount = (iou.debt_remaining_amount || 0) + amountToReverse
+        const newStatus = newRemainingAmount > 0 ? 'active' : 'paid'
+
+        await supabase
+          .from('transactions')
+          .update({
+            debt_remaining_amount: newRemainingAmount,
+            debt_status: newStatus
+          })
+          .eq('id', iou.id)
+
+        paymentsToDelete.push(payment.id)
+        remainingToReverse -= amountToReverse
       }
     }
 
-    alert('IOU status removed successfully!')
+    // Delete the reversed payment records
+    if (paymentsToDelete.length > 0) {
+      await supabase
+        .from('debt_payments')
+        .delete()
+        .in('id', paymentsToDelete)
+    }
+
+    console.log('Payback transaction reversed successfully')
   } catch (error) {
-    console.error('Error unmarking transaction as IOU:', error)
-    alert('Failed to remove IOU status. Please try again.')
+    console.error('Error reversing payback transaction:', error)
+    throw error
   }
 }
 
